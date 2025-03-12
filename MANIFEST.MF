@@ -1,0 +1,14 @@
+Manifest-Version: 1.0
+MIDlet-1: KM Radio, , RadioMIDlet
+MIDlet-Name: KM Radio
+MIDlet-Version: 1.0.0
+MIDlet-Vendor: Custom
+MicroEdition-Profile: MIDP-2.0
+MicroEdition-Configuration: CLDC-1.1
+MIDlet-Description: Simple Internet Radio Player with Custom Stations & Favorites
+MIDlet-Permissions: javax.microedition.io.Connector.http
+MIDlet-Jar-URL: KMRadio.jar
+MIDlet-Icon: /icon.png
+MIDlet-Install-Notify: Default Installation
+MIDlet-Delete-Notify: Default Deletion
+MIDlet-Delete-Confirm: Are you sure you want to delete this application?
