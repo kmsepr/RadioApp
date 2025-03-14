@@ -2,16 +2,19 @@ import javax.microedition.lcdui.*;
 import javax.microedition.midlet.MIDlet;
 import javax.microedition.rms.*;
 import java.util.Vector;
+import java.io.*;
+import javax.microedition.io.*;
 
 public class KMRadio extends MIDlet implements CommandListener {
     private Display display;
     private List mainList;
-    private Command exitCommand, addCommand, deleteCommand, playCommand, backCommand, saveCommand;
+    private Command exitCommand, addCommand, deleteCommand, playCommand, backCommand, saveCommand, loadCommand;
     private Form addForm;
     private TextField urlField, nameField;
     private Vector favorites;
     private Form splashScreen;
     private boolean firstStart = true;
+    private static final String STATION_URL = "http://your-server-address/stationlist.txt"; 
 
     public KMRadio() {
         display = Display.getDisplay(this);
@@ -47,11 +50,13 @@ public class KMRadio extends MIDlet implements CommandListener {
         playCommand = new Command("Play", Command.ITEM, 1);
         backCommand = new Command("Back", Command.BACK, 1);
         saveCommand = new Command("Save", Command.OK, 1);
+        loadCommand = new Command("Load from Server", Command.SCREEN, 2);
 
         mainList.addCommand(exitCommand);
         mainList.addCommand(addCommand);
         mainList.addCommand(deleteCommand);
         mainList.addCommand(playCommand);
+        mainList.addCommand(loadCommand);
         mainList.setCommandListener(this);
 
         addForm = new Form("Add Station");
@@ -74,6 +79,16 @@ public class KMRadio extends MIDlet implements CommandListener {
             mainList.append(station[0], null);
         }
     }
+	
+	private void deleteStation(int index) {
+    if (index >= 0 && index < favorites.size()) {
+        favorites.removeElementAt(index);
+        saveFavorites();  // Save changes after deletion
+        updateList();     // Refresh the UI list
+    }
+}
+
+	
 
     private void loadFavorites() {
         try {
@@ -112,23 +127,47 @@ public class KMRadio extends MIDlet implements CommandListener {
         }
     }
 
-    private void deleteStation(int index) {
-        favorites.removeElementAt(index);
-        saveFavorites();
-        updateList();
-    }
-
-    private String[] split(String str, String sep) {
+    private String[] split(String str, String delimiter) {
         Vector parts = new Vector();
-        int index;
-        while ((index = str.indexOf(sep)) != -1) {
-            parts.addElement(str.substring(0, index));
-            str = str.substring(index + sep.length());
+        int index = 0, lastIndex = 0;
+        while ((index = str.indexOf(delimiter, lastIndex)) != -1) {
+            parts.addElement(str.substring(lastIndex, index));
+            lastIndex = index + delimiter.length();
         }
-        parts.addElement(str);
+        parts.addElement(str.substring(lastIndex));
         String[] result = new String[parts.size()];
         parts.copyInto(result);
         return result;
+    }
+
+    private void loadStationsFromServer() {
+        new Thread() {
+            public void run() {
+                try {
+                    HttpConnection conn = (HttpConnection) Connector.open(STATION_URL);
+                    InputStream is = conn.openInputStream();
+                    ByteArrayOutputStream bos = new ByteArrayOutputStream();
+                    int ch;
+                    while ((ch = is.read()) != -1) {
+                        bos.write(ch);
+                    }
+                    is.close();
+                    conn.close();
+                    String data = new String(bos.toByteArray());
+                    String[] stations = split(data, "\n");
+                    favorites.removeAllElements();
+                    for (int i = 0; i < stations.length; i++) {
+                        String[] station = split(stations[i], ",");
+                        if (station.length == 2) {
+                            favorites.addElement(station);
+                        }
+                    }
+                    updateList();
+                } catch (Exception e) {
+                    display.setCurrent(new Alert("Error", "Could not load stations", null, AlertType.ERROR));
+                }
+            }
+        }.start();
     }
 
     public void commandAction(Command c, Displayable d) {
@@ -159,9 +198,9 @@ public class KMRadio extends MIDlet implements CommandListener {
                 saveFavorites();
                 updateList();
                 display.setCurrent(mainList);
-            } else {
-                display.setCurrent(new Alert("Error", "Please fill all fields", null, AlertType.ERROR));
             }
+        } else if (c == loadCommand) {
+            loadStationsFromServer();
         }
     }
 
