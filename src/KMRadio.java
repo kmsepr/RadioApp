@@ -15,48 +15,34 @@ public class KMRadio extends MIDlet implements CommandListener {
 
     public KMRadio() {
         display = Display.getDisplay(this);
+        mainList = new List("KM Radio", List.IMPLICIT);
         favorites = new Vector();
         loadFavorites();
 
-        // Create splash screen
         splashScreen = new Form("KM Radio");
-        StringItem welcomeText = new StringItem(null, 
-            "Welcome to KM Radio\n\n" +
-            "Your favorite stations\n" +
-            "anywhere, anytime!\n\n" +
-            "Loading...");
-        welcomeText.setLayout(Item.LAYOUT_CENTER | Item.LAYOUT_VCENTER);
-        splashScreen.append(welcomeText);
+        splashScreen.append(new StringItem(null, "Welcome to KM Radio\n\nLoading..."));
     }
 
     protected void startApp() {
         if (firstStart) {
             display.setCurrent(splashScreen);
             firstStart = false;
-            // Use a simple thread for delay
             new Thread() {
                 public void run() {
                     try {
                         Thread.sleep(2000);
-                    } catch (InterruptedException ie) {
-                        // Ignore
-                    }
+                    } catch (InterruptedException ignored) {}
                     initializeUI();
                 }
             }.start();
         } else {
-            if (mainList != null) {
-                display.setCurrent(mainList);
-            } else {
-                initializeUI();
-            }
+            display.setCurrent(mainList);
         }
     }
 
     private void initializeUI() {
-        mainList = new List("KM Radio", List.IMPLICIT);
         exitCommand = new Command("Exit", Command.EXIT, 1);
-        addCommand = new Command("Add Station", Command.SCREEN, 1);
+        addCommand = new Command("Add", Command.SCREEN, 1);
         deleteCommand = new Command("Delete", Command.ITEM, 2);
         playCommand = new Command("Play", Command.ITEM, 1);
         backCommand = new Command("Back", Command.BACK, 1);
@@ -68,10 +54,9 @@ public class KMRadio extends MIDlet implements CommandListener {
         mainList.addCommand(playCommand);
         mainList.setCommandListener(this);
 
-        // Create Add Station form
-        addForm = new Form("Add Radio Station");
-        nameField = new TextField("Station Name:", "", 32, TextField.ANY);
-        urlField = new TextField("Stream URL:", "", 256, TextField.URL);
+        addForm = new Form("Add Station");
+        nameField = new TextField("Name:", "", 32, TextField.ANY);
+        urlField = new TextField("URL:", "", 256, TextField.URL);
         addForm.append(nameField);
         addForm.append(urlField);
         addForm.addCommand(backCommand);
@@ -86,7 +71,7 @@ public class KMRadio extends MIDlet implements CommandListener {
         mainList.deleteAll();
         for (int i = 0; i < favorites.size(); i++) {
             String[] station = (String[]) favorites.elementAt(i);
-            mainList.append(station[0], null); // Display station name
+            mainList.append(station[0], null);
         }
     }
 
@@ -106,51 +91,31 @@ public class KMRadio extends MIDlet implements CommandListener {
             }
             rs.closeRecordStore();
         } catch (Exception e) {
-            Alert alert = new Alert("Notice", "Welcome to KM Radio", null, AlertType.INFO);
-            display.setCurrent(alert, mainList);
+            display.setCurrent(new Alert("Notice", "Welcome to KM Radio", null, AlertType.INFO));
         }
     }
 
     private void saveFavorites() {
-        try {
-            RecordStore.deleteRecordStore("favorites");
-        } catch (Exception e) {
-            // Ignore, record store may not exist
-        }
-
+        try { RecordStore.deleteRecordStore("favorites"); } catch (Exception ignored) {}
         try {
             RecordStore rs = RecordStore.openRecordStore("favorites", true);
             StringBuffer sb = new StringBuffer();
             for (int i = 0; i < favorites.size(); i++) {
                 String[] station = (String[]) favorites.elementAt(i);
                 sb.append(station[0]).append(",").append(station[1]);
-                if (i < favorites.size() - 1) {
-                    sb.append(";");
-                }
+                if (i < favorites.size() - 1) sb.append(";");
             }
-            byte[] raw = sb.toString().getBytes();
-            rs.addRecord(raw, 0, raw.length);
+            rs.addRecord(sb.toString().getBytes(), 0, sb.length());
             rs.closeRecordStore();
         } catch (Exception e) {
-            Alert alert = new Alert("Error", "Could not save stations", null, AlertType.ERROR);
-            alert.setTimeout(Alert.FOREVER);
-            display.setCurrent(alert, mainList);
+            display.setCurrent(new Alert("Error", "Could not save stations", null, AlertType.ERROR));
         }
     }
 
     private void deleteStation(int index) {
-        try {
-            favorites.removeElementAt(index);
-            saveFavorites();
-            updateList();
-            Alert alert = new Alert("Success", "Station deleted", null, AlertType.CONFIRMATION);
-            alert.setTimeout(Alert.FOREVER);
-            display.setCurrent(alert, mainList);
-        } catch (Exception e) {
-            Alert alert = new Alert("Error", "Could not delete station", null, AlertType.ERROR);
-            alert.setTimeout(Alert.FOREVER);
-            display.setCurrent(alert, mainList);
-        }
+        favorites.removeElementAt(index);
+        saveFavorites();
+        updateList();
     }
 
     private String[] split(String str, String sep) {
@@ -176,22 +141,17 @@ public class KMRadio extends MIDlet implements CommandListener {
             display.setCurrent(mainList);
         } else if (c == deleteCommand) {
             int idx = mainList.getSelectedIndex();
-            if (idx >= 0) {
-                deleteStation(idx);
-            }
+            if (idx >= 0) deleteStation(idx);
         } else if (c == playCommand) {
             int idx = mainList.getSelectedIndex();
             if (idx >= 0) {
-                String[] station = (String[]) favorites.elementAt(idx);
                 try {
-                    platformRequest(station[1]);
+                    platformRequest(((String[]) favorites.elementAt(idx))[1]);
                 } catch (Exception e) {
-                    Alert alert = new Alert("Error", "Could not play station", null, AlertType.ERROR);
-                    alert.setTimeout(Alert.FOREVER);
-                    display.setCurrent(alert, mainList);
+                    display.setCurrent(new Alert("Error", "Could not play station", null, AlertType.ERROR));
                 }
             }
-        } else if (c == saveCommand && d == addForm) {
+        } else if (c == saveCommand) {
             String name = nameField.getString().trim();
             String url = urlField.getString().trim();
             if (name.length() > 0 && url.length() > 0) {
@@ -200,17 +160,11 @@ public class KMRadio extends MIDlet implements CommandListener {
                 updateList();
                 display.setCurrent(mainList);
             } else {
-                Alert alert = new Alert("Error", "Please fill all fields", null, AlertType.ERROR);
-                alert.setTimeout(Alert.FOREVER);
-                display.setCurrent(alert, addForm);
+                display.setCurrent(new Alert("Error", "Please fill all fields", null, AlertType.ERROR));
             }
         }
     }
 
-    protected void pauseApp() {
-    }
-
-    protected void destroyApp(boolean unconditional) {
-        saveFavorites();
-    }
+    protected void pauseApp() {}
+    protected void destroyApp(boolean unconditional) { saveFavorites(); }
 }
